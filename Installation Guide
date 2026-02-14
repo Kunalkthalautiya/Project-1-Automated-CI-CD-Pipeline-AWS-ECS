@@ -1,198 +1,948 @@
- Installation Guide: Automated CI/CD Pipeline for AWS ECS
+# Automated CI/CD Pipeline - Complete GUI Installation Guide
 
- Prerequisites
+## Jenkins, Docker, AWS ECS (Fargate) & Application Load Balancer
 
-Before setting up the CI/CD pipeline, ensure you have the following tools and accounts:
+---
 
-- **AWS Account** with necessary IAM permissions
-- **EC2 Instance** (Ubuntu) with Jenkins installed
-- **Docker** installed on EC2
-- **AWS CLI** configured with credentials
-- **GitHub Repository** with application source code
-- **AWS ECR (Elastic Container Registry)** for storing Docker images
-- **AWS ECS (Elastic Container Service)** cluster set up
-- **Application Load Balancer (ALB)** for routing traffic
+## 📚 Table of Contents
+1. [Introduction](#1-introduction)
+2. [Why This Project Is Needed](#2-why-this-project-is-needed)
+3. [Understanding CI/CD](#3-understanding-cicd)
+4. [What This Project Solves](#4-what-this-project-solves)
+5. [Benefits of This Project](#5-benefits-of-this-project)
+6. [Tools & Technologies](#6-tools--technologies)
+7. [High‑Level Architecture](#7-highlevel-architecture)
+8. [Internal Data & Control Flow](#8-internal-data--control-flow)
+9. [Deployment Strategies & Zero Downtime](#9-deployment-strategies--zero-downtime)
+10. [Security Best Practices & Common Mistakes](#10-security-best-practices--common-mistakes)
+11. [Implementation Guide (Step‑by‑Step GUI)](#11-implementation-guide-stepbystep-gui)
+    - [STEP 1: Create EC2 Instance for Jenkins](#step-1-create-ec2-instance-for-jenkins-server)
+    - [STEP 2: IAM Role Setup for Jenkins](#step-2-iam-role-setup-for-jenkins-ec2--ecr--ecs)
+    - [STEP 3: Prepare EC2 Server](#step-3-prepare-ec2-server-for-jenkins--cicd)
+    - [STEP 4: Install & Configure Jenkins](#step-4-install--configure-jenkins-on-ec2)
+    - [STEP 5: Clone GitHub Repo in Jenkins](#step-5-clone-application-repository-in-jenkins)
+    - [STEP 6: Build Docker Image (CI)](#step-6-build-docker-image-using-jenkins-pipeline-core-ci-step)
+    - [STEP 7: Push Image to Amazon ECR](#step-7-push-docker-image-to-amazon-ecr)
+    - [STEP 8: Create ECS Cluster (Fargate)](#step-8-create-ecs-cluster-aws-fargate)
+    - [STEP 9: Create ECS Task Definition](#step-9-create-ecs-task-definition-fargate)
+    - [STEP 10: Create ECS Service](#step-10-create-ecs-service-aws-fargate)
+    - [STEP 11: Create Application Load Balancer](#step-11-create-application-load-balancer-alb)
+    - [STEP 12: Create Target Group](#step-12-create-target-group-for-ecs-service)
+    - [STEP 13: Attach Target Group to ALB Listener](#step-13-attach-target-group-to-ecs-service-enable-traffic-flow)
+12. [Final Takeaway](#12-final-takeaway)
 
- Step 1: Set Up Jenkins on AWS EC2
+---
 
- 1.1 Launch an EC2 Instance
+## 1. Introduction
 
-- Choose **Ubuntu 22.04** AMI
-- Minimum **t2.medium** instance type (for better performance)
-- Enable security group rules:
-  - Port **22** (SSH)
-  - Port **8080** (Jenkins UI)
-  - Port **80, 443** (if needed for web traffic)
+### 1.1 What Is This Project?
+This project demonstrates how to build a real‑world, production‑grade CI/CD pipeline that automatically deploys a containerized application to AWS using modern DevOps tools.
 
- 1.2 Install Jenkins
+In simple terms, whenever a developer pushes code to GitHub, the system automatically:
+- Builds the application
+- Packages it into a Docker container
+- Stores it securely
+- Deploys it to the cloud
+- Makes it available to users via a stable URL
 
+All of this happens without any manual intervention using a CI/CD (Continuous Integration & Continuous Deployment) pipeline.
+
+### 1.2 Real‑World Analogy
+Think of this pipeline as a fully automated factory:
+- **GitHub** → Raw material arrives
+- **Jenkins** → Factory manager coordinating tasks
+- **Docker** → Packaging unit
+- **AWS ECR** → Warehouse for packages
+- **AWS ECS (Fargate)** → Delivery vehicles
+- **Application Load Balancer** → Traffic controller for customers
+
+Once configured, every new version flows automatically to users.
+
+### 1.3 Why This Project Matters in Industry
+This is not a toy project. The same architecture is used by:
+- SaaS companies
+- Startups
+- Large enterprises
+- Microservices‑based platforms
+
+Understanding this project means understanding:
+- How real deployments happen
+- How DevOps teams reduce risk
+- How zero‑downtime releases are achieved
+
+---
+
+## 2. Why This Project Is Needed (Problem Explanation)
+
+### 2.1 Traditional Deployment (Manual Way)
+In traditional setups:
+- Developer updates code
+- Application is built manually
+- Docker image is created manually
+- Image is pushed manually
+- ECS task definition updated manually
+- Services restarted manually
+
+This approach does **not** scale.
+
+### 2.2 Problems with Manual Deployment
+❌ Time‑consuming
+❌ Human errors
+❌ No consistency
+❌ Not scalable
+❌ No rollback safety
+
+Manual deployment in production is risky and unprofessional.
+
+### 2.3 Why Automation Is Mandatory
+Modern applications:
+- Change frequently
+- Serve many users
+- Must stay online 24/7
+
+Automation ensures:
+- Speed
+- Safety
+- Repeatability
+- Reliability
+
+---
+
+## 3. Understanding CI/CD (Beginner → Advanced)
+
+### 3.1 Continuous Integration (CI)
+**Definition:** Automatically building and validating code whenever changes are pushed.
+
+**CI internally:**
+- Pulls code from GitHub
+- Builds the application
+- Runs validations
+- Ensures deployability
+
+**Why CI matters:**
+- Detects errors early
+- Keeps main branch stable
+
+### 3.2 Continuous Deployment (CD)
+**Definition:** Automatically deploying verified code to production without manual approval.
+
+Once CI succeeds:
+- New version is deployed automatically
+- Users get updates immediately
+
+### 3.3 CI vs Continuous Delivery vs Continuous Deployment
+
+| Term | Meaning |
+|------|---------|
+| CI | Build & validate code |
+| Continuous Delivery | Ready for deployment (manual approval) |
+| Continuous Deployment | Auto‑deploy to production |
+
+This project uses **Continuous Deployment**.
+
+### 3.4 Why CI/CD Is an Industry Standard
+- Faster releases
+- Safer deployments
+- Easier rollbacks
+- Better collaboration
+
+---
+
+## 4. What This Project Solves
+This project builds a fully automated deployment pipeline that:
+- Eliminates manual steps
+- Uses containers for consistency
+- Runs on serverless infrastructure
+- Provides stable access via ALB
+- Reflects real DevOps workflows
+
+---
+
+## 5. Benefits of This Project
+✅ Fully automated deployments
+✅ Zero‑downtime updates (conceptual)
+✅ Scalable container architecture
+✅ Stable DNS endpoint
+✅ Secure image storage (ECR)
+✅ Serverless execution (Fargate)
+✅ Strong DevOps foundation
+
+---
+
+## 6. Tools & Technologies
+
+### 6.1 GitHub
+- Source code repository
+- Pipeline trigger via webhook
+
+### 6.2 Jenkins
+- CI/CD orchestrator
+- Executes pipelines
+- Controls workflow
+
+### 6.3 Docker
+- Solves environment mismatch
+- Provides consistent runtime
+- Ideal for microservices
+
+### 6.4 AWS ECR
+- Private Docker registry
+- IAM‑based security
+- ECS‑optimized
+
+### 6.5 AWS ECS (Fargate)
+- Container orchestration
+- Serverless execution
+- No EC2 management
+
+### 6.6 Application Load Balancer
+- Routes traffic
+- Health checks
+- Enables zero‑downtime deployments
+
+---
+
+## 7. High‑Level Architecture
+```
+Developer → GitHub → Jenkins → Docker → ECR → ECS (Fargate) → ALB → Users
+```
+
+---
+
+## 8. Internal Data & Control Flow
+1. Code push to GitHub
+2. Webhook triggers Jenkins
+3. Jenkins pulls code
+4. Docker image built
+5. Image pushed to ECR
+6. ECS task definition updated
+7. Fargate launches containers
+8. ALB routes traffic
+9. Users access app
+
+---
+
+## 9. Deployment Strategies & Zero Downtime
+
+### Rolling Deployment
+- Gradual replacement
+- Default ECS behavior
+
+### Blue‑Green Deployment
+- Two environments
+- Safer but complex
+
+### Zero‑Downtime Concept
+Achieved using:
+- Parallel containers
+- ALB health checks
+- Traffic shifting
+
+---
+
+## 10. Security Best Practices & Common Mistakes
+
+### Best Practices
+- IAM roles with least privilege
+- No hardcoded credentials
+- Private ECR
+- Jenkins credentials store
+
+### Common Mistakes
+⚠️ Using AWS keys in code
+⚠️ Using `latest` only
+⚠️ Skipping health checks
+⚠️ Manual ECS restarts
+
+---
+
+## 11. Implementation Guide (Step‑by‑Step GUI)
+
+---
+
+### STEP 1: Create EC2 Instance for Jenkins Server
+
+**Step 1.1: Open EC2 Launch Wizard**
+- Go to **AWS Management Console** → **EC2** → **Instances** → **Launch instance**
+
+**Step 1.2: Configure Basic Instance Details**
+
+| Setting | Value |
+|---------|-------|
+| **Name** | `jenkins-server` |
+| **AMI** | Ubuntu Server 22.04 LTS (64-bit x86) |
+| **Instance type** | `t2.micro` or `t3.micro` |
+
+**Step 1.3: Key Pair Configuration**
+- Select **Create new key pair**
+- Name: `jenkins-key`
+- Type: **RSA**
+- Format: **.pem**
+- **Download and save securely**
+
+**Step 1.4: Network Settings**
+
+Create a new security group with these inbound rules:
+
+| Type | Protocol | Port | Source | Purpose |
+|------|----------|------|--------|---------|
+| SSH | TCP | 22 | Your IP | Secure login |
+| Custom TCP | TCP | 8080 | 0.0.0.0/0 | Jenkins UI |
+| HTTP | TCP | 80 | 0.0.0.0/0 | Application access |
+
+**Step 1.5: Storage**
+- Root volume: **20 GB**
+- Type: **gp3**
+
+**Step 1.6: Launch Instance**
+- Click **Launch instance**
+
+**Step 1.7: Verify EC2 Instance**
+- Go to **EC2** → **Instances**
+- Verify:
+  - Instance state: **Running**
+  - Public IPv4 address: **Available**
+
+---
+
+### STEP 2: IAM Role Setup for Jenkins (EC2 → ECR → ECS)
+
+**Step 2.1: Open IAM Role Creation Wizard**
+- Go to **AWS Management Console** → **IAM** → **Roles** → **Create role**
+
+**Step 2.2: Select Trusted Entity**
+- Trusted entity type: **AWS service**
+- Use case: **EC2**
+- Click **Next**
+
+**Step 2.3: Attach Permission Policies**
+
+Attach the following policies:
+- ✅ `AmazonEC2ContainerRegistryFullAccess`
+- ✅ `AmazonECS_FullAccess`
+
+Click **Next**
+
+**Step 2.4: Name and Create Role**
+
+| Field | Value |
+|-------|-------|
+| Role name | `Jenkins-ECS-Role` |
+| Description | IAM role for Jenkins EC2 to deploy Docker applications to ECS using ECR |
+
+Click **Create role**
+
+**Step 2.5: Attach IAM Role to Jenkins EC2**
+
+1. Go to **EC2** → **Instances**
+2. Select `jenkins-server`
+3. Click **Actions** → **Security** → **Modify IAM role**
+4. Select `Jenkins-ECS-Role`
+5. Click **Update IAM role**
+
+**Step 2.6: Verify IAM Role**
+- Go to **EC2** → **Instances** → `jenkins-server`
+- Scroll to **IAM role** section
+- Verify: `Jenkins-ECS-Role` is attached
+
+---
+
+### STEP 3: Prepare EC2 Server for Jenkins & CI/CD
+
+**Step 3.1: Connect to EC2 via SSH**
+
+Open terminal and run:
+```bash
+ssh -i jenkins-key.pem ubuntu@<EC2_PUBLIC_IP>
+```
+
+**Step 3.2: Update Operating System**
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install openjdk-11-jdk -y
-wget -q -O - https://pkg.jenkins.io/debian/jenkins.io.key | sudo apt-key add -
-echo "deb http://pkg.jenkins.io/debian-stable binary/" | sudo tee /etc/apt/sources.list.d/jenkins.list
+```
+
+**Step 3.3: Install Docker**
+```bash
+sudo apt install docker.io -y
+```
+
+**Step 3.4: Start & Enable Docker**
+```bash
+sudo systemctl start docker
+sudo systemctl enable docker
+```
+
+**Step 3.5: Verify Docker**
+```bash
+docker --version
+```
+
+**Step 3.6: Allow Non-Root Docker Access**
+```bash
+sudo usermod -aG docker ubuntu
+newgrp docker
+```
+
+**Step 3.7: Install AWS CLI**
+```bash
+sudo apt install unzip -y
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
+unzip awscliv2.zip
+sudo ./aws/install
+```
+
+**Step 3.8: Verify AWS CLI**
+```bash
+aws --version
+```
+
+**Step 3.9: Verify IAM Role Access**
+```bash
+aws sts get-caller-identity
+```
+Expected output shows the `Jenkins-ECS-Role` ARN.
+
+---
+
+### STEP 4: Install & Configure Jenkins on EC2
+
+**Step 4.1: Install Java**
+```bash
+sudo apt install openjdk-17-jdk -y
+```
+
+**Step 4.2: Verify Java**
+```bash
+java -version
+```
+
+**Step 4.3: Add Jenkins Repository**
+```bash
+curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+
+echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/ | sudo tee /etc/apt/sources.list.d/jenkins.list
+```
+
+**Step 4.4: Install Jenkins**
+```bash
 sudo apt update
 sudo apt install jenkins -y
+```
+
+**Step 4.5: Start & Enable Jenkins**
+```bash
 sudo systemctl start jenkins
 sudo systemctl enable jenkins
 ```
 
-### 1.3 Retrieve Jenkins Admin Password
+**Step 4.6: Verify Jenkins Status**
+```bash
+sudo systemctl status jenkins
+```
 
+**Step 4.7: Access Jenkins Web UI**
+- Open browser: `http://<EC2_PUBLIC_IP>:8080`
+
+**Step 4.8: Unlock Jenkins**
 ```bash
 sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 ```
+Copy the password and paste in browser.
 
-- Access **Jenkins UI**: `http://<EC2-Public-IP>:8080`
-- Complete the setup by installing recommended plugins
+**Step 4.9: Install Plugins**
+- Click **Install suggested plugins**
 
-## Step 2: Configure AWS CLI on Jenkins Server
+**Step 4.10: Create Admin User**
+- Fill in:
+  - Username
+  - Password
+  - Full name
+  - Email
+- Click **Save and Continue**
 
-### 2.1 Install AWS CLI
+**Step 4.11: Install Additional Plugins**
 
+Go to: **Jenkins Dashboard** → **Manage Jenkins** → **Plugins** → **Available Plugins**
+
+Install:
+- ✅ **Git**
+- ✅ **Docker Pipeline**
+- ✅ **AWS Credentials**
+- ✅ **Pipeline: Stage View**
+
+**Step 4.12: Add Jenkins to Docker Group**
 ```bash
-sudo apt install awscli -y
-```
-
-### 2.2 Configure AWS Credentials
-
-```bash
-aws configure
-```
-
-Provide:
-
-- AWS Access Key ID
-- AWS Secret Access Key
-- Default region (e.g., `us-east-1`)
-
- Step 3: Install & Configure Docker on EC2
-
-```bash
-sudo apt install docker.io -y
-sudo systemctl start docker
-sudo systemctl enable docker
 sudo usermod -aG docker jenkins
-```
-
-Restart Jenkins to apply changes:
-
-```bash
 sudo systemctl restart jenkins
 ```
 
- Step 4: Set Up AWS ECR for Docker Image Storage
+---
 
- 4.1 Create ECR Repository
+### STEP 5: Clone Application Repository in Jenkins
 
-```bash
-aws ecr create-repository --repository-name my-app-repo
-```
+**Step 5.1: Prepare GitHub Repository**
+Ensure your repository contains:
+- Application source code
+- `Dockerfile`
 
-Copy the repository URI for later use.
+**Step 5.2: Copy Repository URL**
+- Go to GitHub repository
+- Click **Code**
+- Copy **HTTPS URL**
 
- 4.2 Authenticate Docker with AWS ECR
+**Step 5.3: Create Jenkins Pipeline Job**
 
-```bash
-aws ecr get-login-password | docker login --username AWS --password-stdin <ECR-URI>
-```
- Step 5: Set Up CI/CD Pipeline in Jenkins
+1. Go to **Jenkins Dashboard**
+2. Click **New Item**
+3. Enter name: `my-app-ci`
+4. Select **Pipeline**
+5. Click **OK**
 
-5.1 Install Jenkins Plugins
+**Step 5.4: Configure Source Code Management**
 
-- Pipeline
-- GitHub Integration
-- Docker Pipeline
-- Amazon EC2 Plugin
+| Field | Value |
+|-------|-------|
+| **Pipeline Definition** | Pipeline script from SCM |
+| **SCM** | Git |
+| **Repository URL** | Your GitHub HTTPS URL |
+| **Credentials** | None (for public repos) |
+| **Branch** | `*/main` or `*/master` |
+| **Script Path** | `Jenkinsfile` |
 
-5.2 Create a New Pipeline Job
+**Step 5.5: Save and Build**
+- Click **Save**
+- Click **Build Now**
 
-- Go to Jenkins Dashboard > New Item
-- Select Pipeline, name it `MyApp-CI-CD`
-- Under Pipeline Script, use the following Jenkinsfile:
-
-```groovy
-pipeline {
-    agent any
-    environment {
-        AWS_REGION = 'us-east-1'
-        ECR_REPO_URI = '<ECR-URI>'
-        IMAGE_TAG = 'latest'
-    }
-    stages {
-        stage('Checkout Code') {
-            steps {
-                git 'https://github.com/your-repo.git'
-            }
-        }
-        stage('Build Docker Image') {
-            steps {
-                sh 'docker build -t $ECR_REPO_URI:$IMAGE_TAG .'
-            }
-        }
-        stage('Push Image to ECR') {
-            steps {
-                sh 'aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_REPO_URI'
-                sh 'docker push $ECR_REPO_URI:$IMAGE_TAG'
-            }
-        }
-        stage('Deploy to ECS') {
-            steps {
-                sh 'aws ecs update-service --cluster my-cluster --service my-service --force-new-deployment'
-            }
-        }
-    }
-}
-```
-
- Step 6: Deploy Microservice to AWS ECS
-
-6.1 Create an ECS Cluster
-
-```bash
-aws ecs create-cluster --cluster-name my-cluster
-```
-
-6.2 Register a Task Definition
-
-Create a JSON file (`task-definition.json`):
-
-```json
-{
-    "family": "my-task",
-    "containerDefinitions": [
-        {
-            "name": "my-container",
-            "image": "<ECR-URI>:latest",
-            "memory": 512,
-            "cpu": 256,
-            "essential": true
-        }
-    ]
-}
-```
-
-Register the task:
-
-```bash
-aws ecs register-task-definition --cli-input-json file://task-definition.json
-```
-
-6.3 Create a Service & Deploy
-
-```bash
-aws ecs create-service --cluster my-cluster --service-name my-service --task-definition my-task --desired-count 2 --launch-type FARGATE
-```
-
-Step 7: Verify Deployment
-
-- Go to AWS ECS Console > Clusters > my-cluster
-- Check running services & tasks
-- Use ALB DNS Name to access the deployed service.
+**Step 5.6: Verify Build**
+- Click the build number
+- Click **Console Output**
+- Verify: "Cloning repository" appears
 
 ---
 
-Congratulations! Your CI/CD Pipeline is Live 🚀 Now, every code push to GitHub will trigger the pipeline, build a new Docker image, push it to ECR, and deploy it to ECS automatically! 🎉
+### STEP 6: Build Docker Image using Jenkins Pipeline
 
+**Step 6.1: Create Jenkinsfile in Your Repository**
 
+Create a file named `Jenkinsfile` in your GitHub repository root:
 
+```groovy
+pipeline {
+  agent any
+
+  environment {
+    AWS_REGION   = 'ap-south-1'  # Change to your region
+    ECR_REPO_URI = '<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/my-app-repo'
+    IMAGE_TAG    = "${BUILD_NUMBER}"
+    ECS_CLUSTER  = 'my-cluster'
+    ECS_SERVICE  = 'my-service'
+  }
+
+  stages {
+    stage('Checkout Code') {
+      steps {
+        git branch: 'main',
+            url: 'https://github.com/yourusername/your-repo.git'
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        sh '''
+        docker build -t $ECR_REPO_URI:$IMAGE_TAG .
+        docker tag $ECR_REPO_URI:$IMAGE_TAG $ECR_REPO_URI:latest
+        '''
+      }
+    }
+
+    stage('Push Image to ECR') {
+      steps {
+        sh '''
+        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO_URI
+        docker push $ECR_REPO_URI:$IMAGE_TAG
+        docker push $ECR_REPO_URI:latest
+        '''
+      }
+    }
+
+    stage('Deploy to ECS') {
+      steps {
+        sh '''
+        aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_SERVICE --force-new-deployment --region $AWS_REGION
+        '''
+      }
+    }
+  }
+}
+```
+
+**Step 6.2: Update Jenkins Job**
+- Go to `my-app-ci` job
+- Click **Configure**
+- Ensure **Script Path** is `Jenkinsfile`
+- Click **Save**
+
+**Step 6.3: Trigger Build**
+- Click **Build Now**
+
+**Step 6.4: Verify Docker Build**
+- Check **Console Output**
+- Look for: `Successfully tagged`
+
+---
+
+### STEP 7: Push Docker Image to Amazon ECR
+
+**Step 7.1: Create ECR Repository**
+
+1. Go to **AWS Management Console** → **Amazon ECR** → **Repositories**
+2. Click **Create repository**
+
+| Field | Value |
+|-------|-------|
+| **Repository name** | `my-app-repo` |
+| **Visibility** | Private |
+| **Tag immutability** | Disabled |
+
+3. Click **Create repository**
+
+**Step 7.2: Note Repository URI**
+```
+<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/my-app-repo
+```
+
+**Step 7.3: Update Jenkinsfile**
+Replace `<ACCOUNT_ID>` and `<REGION>` with your actual values.
+
+**Step 7.4: Trigger Pipeline**
+- Go to Jenkins job `my-app-ci`
+- Click **Build Now**
+
+**Step 7.5: Verify in ECR**
+
+1. Go to **Amazon ECR** → **Repositories** → `my-app-repo`
+2. Verify images appear with tags:
+   - `latest`
+   - `<BUILD_NUMBER>`
+
+---
+
+### STEP 8: Create ECS Cluster (AWS Fargate)
+
+**Step 8.1: Open ECS Console**
+- Go to **AWS Management Console** → **Amazon ECS**
+
+**Step 8.2: Create Cluster**
+- Click **Clusters**
+- Click **Create cluster**
+
+**Step 8.3: Configure Cluster**
+
+| Field | Value |
+|-------|-------|
+| **Cluster template** | AWS Fargate |
+| **Cluster name** | `my-cluster` |
+| **VPC** | Default VPC |
+| **Subnets** | Default subnets |
+
+**Step 8.4: Create Cluster**
+- Click **Create**
+
+**Step 8.5: Verify Cluster**
+- Go to **ECS** → **Clusters** → `my-cluster`
+- Status: **Active**
+
+---
+
+### STEP 9: Create ECS Task Definition (Fargate)
+
+**Step 9.1: Open Task Definition Wizard**
+- Go to **Amazon ECS** → **Task Definitions**
+- Click **Create new task definition**
+
+**Step 9.2: Select Launch Type**
+- Select: **AWS Fargate**
+- Click **Next**
+
+**Step 9.3: Configure Task Definition**
+
+| Field | Value |
+|-------|-------|
+| **Task definition family** | `my-task` |
+| **Operating system** | Linux |
+| **Task execution role** | `ecsTaskExecutionRole` |
+| **CPU** | 0.25 vCPU |
+| **Memory** | 0.5 GB |
+
+**Step 9.4: Add Container**
+
+Click **Add container**
+
+| Field | Value |
+|-------|-------|
+| **Container name** | `my-container` |
+| **Image URI** | `<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/my-app-repo:latest` |
+| **Essential** | Yes |
+
+**Port Mappings:**
+
+| Field | Value |
+|-------|-------|
+| **Container port** | 80 |
+| **Protocol** | TCP |
+
+**Logging:**
+
+| Field | Value |
+|-------|-------|
+| **Log driver** | awslogs |
+| **Log group** | `/ecs/my-task` |
+| **Region** | ap-south-1 |
+| **Stream prefix** | `ecs` |
+
+**Step 9.5: Create Task Definition**
+- Click **Create**
+
+**Step 9.6: Verify**
+- Go to **Task Definitions** → `my-task`
+- Revision `:1` should be **ACTIVE**
+
+---
+
+### STEP 10: Create ECS Service (AWS Fargate)
+
+**Step 10.1: Open ECS Cluster**
+- Go to **Amazon ECS** → **Clusters** → `my-cluster`
+
+**Step 10.2: Create Service**
+- Click **Services** tab
+- Click **Create**
+
+**Step 10.3: Configure Service Basics**
+
+| Field | Value |
+|-------|-------|
+| **Launch type** | Fargate |
+| **Task Definition Family** | `my-task` |
+| **Revision** | Latest (`:1`) |
+| **Service name** | `my-service` |
+| **Desired tasks** | `1` |
+
+**Step 10.4: Networking Configuration**
+
+| Field | Value |
+|-------|-------|
+| **VPC** | Same as cluster |
+| **Subnets** | Select at least one |
+| **Security group** | Create new or select existing with port 80 |
+| **Public IP** | ENABLED (for testing) |
+
+**Step 10.5: Load Balancer**
+- Select: **No load balancer** (we'll add later)
+- Click **Create service**
+
+**Step 10.6: Verify Service**
+
+1. Go to **Services** → `my-service`
+2. Verify:
+   - Desired tasks: **1**
+   - Running tasks: **1**
+   - Status: **ACTIVE**
+
+---
+
+### STEP 11: Create Application Load Balancer (ALB)
+
+**Step 11.1: Open EC2 Load Balancer Console**
+- Go to **AWS Management Console** → **EC2** → **Load Balancers**
+
+**Step 11.2: Create Load Balancer**
+- Click **Create Load Balancer**
+- Select **Application Load Balancer**
+- Click **Create**
+
+**Step 11.3: Configure ALB Basics**
+
+| Field | Value |
+|-------|-------|
+| **Name** | `my-alb` |
+| **Scheme** | Internet-facing |
+| **IP address type** | IPv4 |
+
+**Step 11.4: Network Mapping**
+
+| Field | Value |
+|-------|-------|
+| **VPC** | Same as ECS cluster |
+| **Subnets** | Select at least two subnets |
+
+**Step 11.5: Security Group**
+
+Create new security group:
+
+| Rule | Port | Source |
+|------|------|--------|
+| HTTP | 80 | 0.0.0.0/0 |
+
+**Step 11.6: Listeners and Routing**
+
+| Field | Value |
+|-------|-------|
+| **Listener Protocol** | HTTP |
+| **Listener Port** | 80 |
+| **Default action** | Create target group (will configure next) |
+
+**Step 11.7: Create Load Balancer**
+- Click **Create load balancer**
+
+**Step 11.8: Verify ALB**
+- Go to **EC2** → **Load Balancers** → `my-alb`
+- Status: **Active**
+- Note the **DNS name**
+
+---
+
+### STEP 12: Create Target Group for ECS Service
+
+**Step 12.1: Open Target Group Creation Wizard**
+- Go to **EC2** → **Target Groups**
+- Click **Create target group**
+
+**Step 12.2: Choose Target Type**
+
+| Field | Value |
+|-------|-------|
+| **Target type** | **IP addresses** |
+
+**Step 12.3: Configure Target Group**
+
+| Field | Value |
+|-------|-------|
+| **Target group name** | `my-target-group` |
+| **Protocol** | HTTP |
+| **Port** | 80 |
+| **VPC** | Same as ECS cluster |
+
+**Step 12.4: Configure Health Checks**
+
+| Field | Value |
+|-------|-------|
+| **Health check protocol** | HTTP |
+| **Health check path** | `/` |
+| **Port** | Traffic port |
+
+**Advanced health check settings** (keep defaults):
+- Healthy threshold: 5
+- Unhealthy threshold: 2
+- Timeout: 5 seconds
+- Interval: 30 seconds
+
+**Step 12.5: Register Targets**
+- Skip (do not register any targets)
+- Click **Next**
+
+**Step 12.6: Create Target Group**
+- Click **Create target group**
+
+**Step 12.7: Verify**
+- Go to **Target Groups** → `my-target-group`
+- Targets: **0** (expected)
+
+---
+
+### STEP 13: Attach Target Group to ECS Service (Enable Traffic Flow)
+
+**Step 13.1: Open ECS Service**
+- Go to **Amazon ECS** → **Clusters** → `my-cluster` → **Services** → `my-service`
+
+**Step 13.2: Update Service**
+- Click **Update**
+
+**Step 13.3: Configure Load Balancer Integration**
+
+Scroll to **Load balancing** section:
+
+| Field | Value |
+|-------|-------|
+| **Load balancer type** | Application Load Balancer |
+| **Load balancer** | `my-alb` |
+| **Listener** | HTTP : 80 |
+
+**Container Mapping:**
+
+| Field | Value |
+|-------|-------|
+| **Container name** | `my-container` |
+| **Container port** | 80 |
+| **Target group** | `my-target-group` |
+
+**Step 13.4: Complete Service Update**
+- Keep all other settings as default
+- Click **Update service**
+
+**Step 13.5: Monitor Deployment**
+- Go to **Services** → `my-service`
+- Watch deployment status
+- Wait for tasks to become **RUNNING**
+
+**Step 13.6: Verify Target Registration**
+
+1. Go to **EC2** → **Target Groups** → `my-target-group`
+2. Click **Targets** tab
+3. Verify:
+   - Target (IP) appears
+   - Status: **healthy**
+
+**Step 13.7: Test Application**
+
+1. Go to **EC2** → **Load Balancers** → `my-alb`
+2. Copy **DNS name** (e.g., `my-alb-123456.ap-south-1.elb.amazonaws.com`)
+3. Open in browser: `http://<ALB_DNS_NAME>`
+4. 🎉 **Your application should load!**
+
+**Step 13.8: Test CI/CD Pipeline**
+1. Make a change to your application code
+2. Push to GitHub
+3. Go to Jenkins and trigger a build (or set up webhook)
+4. Watch the pipeline execute automatically
+5. Refresh browser to see changes
+
+---
+
+## 12. Final Takeaway
+
+By completing this project, you have:
+
+✅ Built a fully automated CI/CD pipeline
+✅ Understood real DevOps workflows
+✅ Deployed containers to AWS Fargate
+✅ Configured load balancing and health checks
+✅ Implemented production-grade security with IAM roles
+✅ Achieved zero-downtime deployment capability
+
+### What You Learned:
+- **Jenkins** as CI/CD orchestrator
+- **Docker** for containerization
+- **Amazon ECR** for private image storage
+- **Amazon ECS (Fargate)** for serverless container orchestration
+- **Application Load Balancer** for traffic management
+- **IAM Roles** for secure AWS access
+- **Pipeline as Code** using Jenkinsfile
+
+### Next Steps:
+- Add GitHub webhook for automatic triggers
+- Implement Blue/Green deployment
+- Add multiple environments (dev/staging/prod)
+- Configure custom domain with HTTPS
+- Set up CloudWatch alarms and monitoring
+- Add database integration
+
+### You're Now Ready For:
+- DevOps Engineer roles
+- Cloud Engineer positions
+- Site Reliability Engineering (SRE)
+- Platform Engineering teams
+
+---
+
+**🎯 Congratulations! You've built a production-grade CI/CD pipeline that mirrors real industry practices.**
