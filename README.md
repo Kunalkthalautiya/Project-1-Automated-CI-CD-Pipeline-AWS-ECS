@@ -256,17 +256,12 @@ This project builds a fully automated deployment pipeline that:
 - Enables zero-downtime deployments
 - **Why:** Production-grade traffic management
 
----
-
 ## Architecture Diagram
   ![image](https://github.com/user-attachments/assets/612b1b18-7636-4d2b-aff6-cf5e971c2797)
-```
 
----
 
 ## 8. Internal Data & Control Flow
 
-```
 1. Developer pushes code → GitHub
 2. GitHub webhook → Jenkins
 3. Jenkins pulls code → Jenkins workspace
@@ -277,9 +272,6 @@ This project builds a fully automated deployment pipeline that:
 8. ALB registers new containers → health checks
 9. ALB shifts traffic → new containers receive traffic
 10. Users access app → via ALB DNS
-```
-
----
 
 ## 9. Deployment Strategies & Zero Downtime
 
