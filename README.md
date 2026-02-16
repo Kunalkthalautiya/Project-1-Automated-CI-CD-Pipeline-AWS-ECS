@@ -57,7 +57,9 @@
     - [STEP 12: Create Target Group for ECS Service](#step-12-create-target-group-for-ecs-service)
     - [STEP 13: Attach Target Group to ECS Service](#step-13-attach-target-group-to-ecs-service-enable-traffic-flow)
 
-12. [Final Takeaway](#12-final-takeaway)
+
+12. [Monitoring & Observability (Production Readiness)](#12-monitoring--observability-production-readiness)
+13. [Final Takeaway](#13-final-takeaway)
 
 ---
 
@@ -256,8 +258,8 @@ This project builds a fully automated deployment pipeline that:
 - Enables zero-downtime deployments
 - **Why:** Production-grade traffic management
 
-## Architecture Diagram
-  ![image](https://github.com/user-attachments/assets/612b1b18-7636-4d2b-aff6-cf5e971c2797)
+## 7. High-Level Architecture
+![Automated CI/CD Pipeline with Monitoring and Alerting using Jenkins, Docker, AWS ECS (Fargate) and ALB](./architecture_diagram/architecture_diagram.png)
 
 
 ## 8. Internal Data & Control Flow
@@ -1008,7 +1010,7 @@ pipeline {
 ```groovy
 environment {
   AWS_REGION   = 'ap-south-1'
-  AWS_ACCOUNT_ID = '123456789012'
+  AWS_ACCOUNT_ID = '12345678'
   ECR_REPO_NAME = 'my-app-repo'
   ECR_REPO_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}"
   IMAGE_TAG    = "${BUILD_NUMBER}"
@@ -1730,71 +1732,44 @@ By completing STEP 13, you now have:
 
 ---
 
-## 12. Final Takeaway
+## 12. Monitoring & Observability (Production Readiness)
 
-### 🎯 What You've Achieved
+A CI/CD pipeline is incomplete without visibility into **what happens after deployment**.  
+This project includes **production-grade monitoring and logging** to detect deployment failures and runtime issues early.
 
-By completing this project, you have built a **production-grade CI/CD pipeline** that demonstrates:
+### What Is Covered
+- Centralized ECS container logging using **CloudWatch Logs**
+- ECS service monitoring for:
+  - Task crashes
+  - Failed or unstable deployments
+  - High memory utilization
+- Application Load Balancer (ALB) monitoring for:
+  - Unhealthy targets
+  - HTTP 5XX application errors
+- Real-time alerting using **Amazon SNS**
+- Failure simulation to validate alarms and alerts
 
-| Skill | Real-World Application |
-|-------|------------------------|
-| **Infrastructure as Code** | Automated AWS resource creation |
-| **CI/CD Automation** | Jenkins pipelines for build & deploy |
-| **Containerization** | Docker for consistent environments |
-| **Cloud Native** | AWS ECS Fargate (serverless) |
-| **Security** | IAM roles, no hardcoded credentials |
-| **High Availability** | Load balancing, health checks |
-| **Zero Downtime** | Rolling deployments with ALB |
+### Why This Matters
+CI pipelines (like Jenkins) can report success even when an application fails at runtime.  
+This monitoring layer ensures:
+- Failures are detected automatically
+- Alerts reach engineers immediately
+- Downtime is minimized
+- Root cause analysis is possible using logs
 
-### 📚 Key Concepts Mastered
-- ✅ Continuous Integration & Continuous Deployment
-- ✅ Infrastructure automation on AWS
-- ✅ Container registry management (ECR)
-- ✅ Serverless container orchestration (Fargate)
-- ✅ Load balancing and traffic routing
-- ✅ IAM security best practices
-- ✅ DevOps workflow implementation
+📄 **Detailed monitoring design, alarm configuration, and validation steps:**  
+[Automated Monitoring & Logging for Deployment Issues](./docs/monitoring-and-alerting.md)
 
-### 💼 Interview-Ready Knowledge
-You can now confidently explain:
-- "How do you deploy applications in production?"
-- "What is your CI/CD process?"
-- "How do you ensure zero downtime during deployments?"
-- "How do you secure AWS credentials in Jenkins?"
-- "How does ECS Fargate differ from EC2?"
+## 13. Final Takeaway
 
+This project demonstrates a **complete, production-ready CI/CD pipeline** using Jenkins, Docker, AWS ECS (Fargate), and an Application Load Balancer.
 
----
+Beyond automated build and deployment, it also includes:
+- Deployment validation through ECS and ALB
+- Centralized logging for runtime visibility
+- Automated monitoring and real-time alerting
+- Failure simulation to validate system reliability
 
-## 📝 Summary Checklist
-
-| Step | Component | Status |
-|------|-----------|--------|
-| 1 | EC2 Jenkins Server | ✅ |
-| 2 | IAM Role for Jenkins | ✅ |
-| 3 | Server Preparation (Docker, AWS CLI) | ✅ |
-| 4 | Jenkins Installation & Configuration | ✅ |
-| 5 | GitHub Integration | ✅ |
-| 6 | Docker Build Pipeline (CI) | ✅ |
-| 7 | ECR Repository & Image Push | ✅ |
-| 8 | ECS Cluster (Fargate) | ✅ |
-| 9 | ECS Task Definition | ✅ |
-| 10 | ECS Service | ✅ |
-| 11 | Application Load Balancer | ✅ |
-| 12 | Target Group | ✅ |
-| 13 | ALB + ECS Integration | ✅ |
-
----
-
-## 🏆 Congratulations!
-
-You have successfully built and deployed a **real-world, production-grade CI/CD pipeline** using:
-- **Jenkins** for automation
-- **Docker** for containerization
-- **AWS ECR** for secure image storage
-- **AWS ECS Fargate** for serverless container execution
-- **Application Load Balancer** for traffic management
-
-This is the exact architecture used by companies worldwide to deliver software reliably, securely, and efficiently.
+Together, these components reflect how modern cloud-native applications are built, deployed, monitored, and operated in real-world environments.
 
 ---
