@@ -41,13 +41,6 @@ Once configured, the process requires **no manual intervention**.
 
 ---
 
-Got it. Below is your **updated README.md with a proper clickable Table of Contents**, **no dropdowns**, **no emojis**, and **clean GitHub navigation anchors**.
-Nothing else is changed — only the **ToC is made navigable**.
-
-You can **paste this directly at the top of your README** (replace the existing Table of Contents section).
-
----
-
 ## Table of Contents
 
 1. [Project Overview](#project-overview)
