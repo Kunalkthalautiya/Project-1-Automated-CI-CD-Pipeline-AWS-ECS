@@ -3,7 +3,7 @@
 ## Complete Production-Grade Implementation Guide
 
 <p align="center">
-  <img src="./docs/architecture_diagram/architecture_diagram.png" alt="CI/CD Architecture Diagram" width="85%">
+  <img src="docs/architecture_diagram/architecture_diagram.png" alt="CI/CD Architecture Diagram" width="85%">
 </p>
 
 <p align="center">
