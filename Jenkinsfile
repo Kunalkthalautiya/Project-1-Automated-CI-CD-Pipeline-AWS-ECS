@@ -1,77 +1,75 @@
 pipeline {
-    agent any
+  agent any
 
-    environment {
-        AWS_REGION = 'ap-south-1' 
-        ECR_REPO = 'your-ecr-repository-url' 
-        CLUSTER_NAME = 'your-ecs-cluster-name'
-        SERVICE_NAME = 'your-ecs-service-name'
-        TASK_DEFINITION_NAME = 'your-task-definition-name'
-        CONTAINER_NAME = 'your-container-name'
+  environment {
+    AWS_REGION   = 'ap-south-1'      // Change to your region
+    AWS_ACCOUNT_ID = '12345678'      // Replace with your AWS account ID
+    ECR_REPO_NAME = 'my-app-repo'   // ECR repository name
+    ECR_REPO_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}"
+    IMAGE_TAG    = "${BUILD_NUMBER}"
+    ECS_CLUSTER  = 'my-cluster'
+    ECS_SERVICE  = 'my-service'
+    CONTAINER_NAME = 'my-container'
+  }
+
+  stages {
+    stage('Checkout Code') {
+      steps {
+        git branch: 'main',
+            url: 'https://github.com/username/my-app.git'   // Replace with your repo
+      }
     }
 
-    stages {
-        stage('Set Environment Variables') {
-            steps {
-                script {
-                    env.IMAGE_TAG = "${BUILD_NUMBER}" 
-                }
-            }
+    stage('Build Docker Image') {
+      steps {
+        script {
+          sh '''
+            echo "Building Docker image with tag: ${IMAGE_TAG}"
+            docker build -t ${ECR_REPO_URI}:${IMAGE_TAG} .
+            docker tag ${ECR_REPO_URI}:${IMAGE_TAG} ${ECR_REPO_URI}:latest
+          '''
         }
-
-        stage('Checkout Code') {
-            steps {
-                git branch: 'main', url: 'https://github.com/Kunalkthalautiya/Project-1-Automated-CI-CD-Pipeline-AWS-ECS.git'
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                sh 'docker build -t $ECR_REPO:$IMAGE_TAG .'  
-            }
-        }
-
-        stage('Authenticate AWS ECR') {
-            steps {
-                sh 'aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO'
-            }
-        }
-
-        stage('Push Image to ECR') {
-            steps {
-                sh 'docker push $ECR_REPO:$IMAGE_TAG'  
-            }
-        }
-
-        stage('Update ECS Task Definition') {
-            steps {
-                script {
-                    sh '''
-                    if aws ecs describe-task-definition --task-definition $TASK_DEFINITION_NAME >/dev/null 2>&1; then
-                        echo "Existing task definition found, updating..."
-                    else
-                        echo "Task definition not found, creating a new one..."
-                    fi
-
-                    aws ecs describe-task-definition --task-definition $TASK_DEFINITION_NAME --query taskDefinition --output json \
-                    | jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
-                    > new-task-def.json
-
-                    jq --arg IMAGE_URI "$ECR_REPO:$IMAGE_TAG" '.containerDefinitions[0].image = $IMAGE_URI' new-task-def.json > updated-task-def.json
-
-                    aws ecs register-task-definition --cli-input-json file://updated-task-def.json
-                    '''
-                }
-            }
-        }
-
-        stage('Deploy to ECS') {
-            steps {
-                sh '''
-                NEW_TASK_REVISION=$(aws ecs describe-task-definition --task-definition $TASK_DEFINITION_NAME --query 'taskDefinition.revision' --output text)
-                aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --task-definition $TASK_DEFINITION_NAME:$NEW_TASK_REVISION
-                '''
-            }
-        }
+      }
     }
+
+    stage('Push Image to ECR') {
+      steps {
+        script {
+          sh '''
+            # Login to ECR
+            aws ecr get-login-password --region ${AWS_REGION} | \
+              docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+            
+            # Push both tags
+            docker push ${ECR_REPO_URI}:${IMAGE_TAG}
+            docker push ${ECR_REPO_URI}:latest
+          '''
+        }
+      }
+    }
+
+    stage('Deploy to ECS') {
+      steps {
+        script {
+          sh '''
+            # Force new deployment with latest image
+            aws ecs update-service \
+              --cluster ${ECS_CLUSTER} \
+              --service ${ECS_SERVICE} \
+              --force-new-deployment \
+              --region ${AWS_REGION}
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo 'Pipeline completed successfully!'
+    }
+    failure {
+      echo 'Pipeline failed. Check logs for details.'
+    }
+  }
 }
